@@ -116,8 +116,8 @@ module Spotify
       @config = Spotify::Lib::SessionConfig.new
 
       @config[:api_version]          = Spotify::Lib::API_VERSION
-      @config[:cache_location]       = FFI::MemoryPointer.from_string(CACHE_LOCATION)
-      @config[:settings_location]    = FFI::MemoryPointer.from_string(SETTINGS_LOCATION)
+      @config[:cache_location]       = FFI::MemoryPointer.from_string(@cache_location)
+      @config[:settings_location]    = FFI::MemoryPointer.from_string(@settings_location)
       @config[:application_key]      = FFI::MemoryPointer.from_string(key)
       @config[:application_key_size] = key.size
       @config[:user_agent]           = FFI::MemoryPointer.from_string("Spotify Url Checker")
