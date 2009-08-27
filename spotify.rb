@@ -170,6 +170,8 @@ module Spotify
 end # Spotify
 
 if __FILE__ == $0
+  raise "USAGE: #{$0} <username> <password>" unless ARGV.size == 2
+
   user, pass = ARGV[0], ARGV[1]
 
   client          = Spotify::Client.new
