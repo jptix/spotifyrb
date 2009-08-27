@@ -115,7 +115,7 @@ module Spotify
       key     = File.read(@key_file)
       @config = Spotify::Lib::SessionConfig.new
 
-      @config[:api_version]          = API_VERSION
+      @config[:api_version]          = Spotify::Lib::API_VERSION
       @config[:cache_location]       = FFI::MemoryPointer.from_string(CACHE_LOCATION)
       @config[:settings_location]    = FFI::MemoryPointer.from_string(SETTINGS_LOCATION)
       @config[:application_key]      = FFI::MemoryPointer.from_string(key)
