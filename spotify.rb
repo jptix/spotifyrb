@@ -74,12 +74,14 @@ module Spotify
     # callbacks
     #
 
-    def on_login(&blk)
-      @callbacks[:on_login] = blk
-    end
+    [ :on_login, :on_logout, :on_metadata_updated, :on_connection_error, :on_message_to_user, :on_notification,
+      :on_music_delivery, :on_lost_play_token, :on_log_message ].each do |meth|
+        instance_eval <<-RUBY
+        def #{meth}(&blk)
+          @callbacks[#{meth}] = blk
+        end
 
-    def on_logout(&blk)
-      @callbacks[:on_logout] = blk
+        RUBY
     end
 
     #
@@ -125,8 +127,15 @@ module Spotify
 
     def create_callbacks
       session_callbacks = Spotify::Lib::SessionCallbacks.new
-      session_callbacks[:logged_in] = method(:logged_in).to_proc
-      session_callbacks[:logged_out] = method(:logged_out).to_proc
+      session_callbacks[:logged_in]          = method(:logged_in).to_proc
+      session_callbacks[:logged_out]         = method(:logged_out).to_proc
+      session_callbacks[:metadata_updated]   = lambda { |*args| invoke_callback(:on_metadata_updated, *args) }
+      session_callbacks[:connection_error]   = lambda { |*args| invoke_callback(:on_connection_error, *args) }
+      session_callbacks[:message_to_user]    = lambda { |*args| invoke_callback(:on_message_to_user, *args) }
+      session_callbacks[:notify_main_thread] = lambda { |*args| invoke_callback(:on_notification, *args) }
+      session_callbacks[:music_delivery]     = lambda { |*args| invoke_callback(:on_music_delivery, *args) }
+      session_callbacks[:play_token_lost]    = lambda { |*args| invoke_callback(:on_lost_play_token, *args) }
+      session_callbacks[:log_message]        = lambda { |*args| invoke_callback(:on_log_message, *args) }
 
       @config[:callbacks] = session_callbacks.to_ptr
     end
