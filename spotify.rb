@@ -66,7 +66,6 @@ module Spotify
       @cache_location    = File.dirname(__FILE__)
       @settings_location = File.dirname(__FILE__)
 
-
       yield self if block_given?
     end
 
@@ -89,9 +88,11 @@ module Spotify
 
 
     def login(user, pass)
-      create_config
-      create_callbacks
-      create_session
+      unless defined?(@session_ptr)
+        create_config
+        create_callbacks
+        create_session
+      end
 
       check_error Spotify::Lib.sp_session_login(@session_ptr, user, pass)
     end
