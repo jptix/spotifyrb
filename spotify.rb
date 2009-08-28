@@ -76,7 +76,7 @@ module Spotify
 
     [ :on_login, :on_logout, :on_metadata_updated, :on_connection_error, :on_message_to_user, :on_notification,
       :on_music_delivery, :on_lost_play_token, :on_log_message ].each do |meth|
-        instance_eval <<-RUBY
+        module_eval <<-RUBY
         def #{meth}(&blk)
           @callbacks[#{meth}] = blk
         end
