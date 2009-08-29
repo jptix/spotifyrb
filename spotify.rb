@@ -187,7 +187,7 @@ if __FILE__ == $0
   client.verbose  = true
   client.key_file = "spotify_appkey.key"
 
-  client.login ARGV[0], ARGV[1]
+  client.login user, pass
 
   client.run_loop
 end
