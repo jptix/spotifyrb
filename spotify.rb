@@ -1,5 +1,6 @@
 require "rubygems"
 require "ffi"
+require "thread"
 
 module Spotify
   extend FFI::Library
@@ -79,6 +80,7 @@ module Spotify
       @callbacks         = {}
       @cache_location    = File.dirname(__FILE__)
       @settings_location = File.dirname(__FILE__)
+      @cvar              = ConditionVariable.new
 
       yield self if block_given?
     end
@@ -184,7 +186,7 @@ module Spotify
       session_callbacks[:metadata_updated]   = lambda { |*args| invoke_callback(:on_metadata_updated, *args) }
       session_callbacks[:connection_error]   = lambda { |*args| invoke_callback(:on_connection_error, *args) }
       session_callbacks[:message_to_user]    = lambda { |*args| invoke_callback(:on_message_to_user, *args) }
-      session_callbacks[:notify_main_thread] = lambda { |*args| invoke_callback(:on_notification, *args) }
+      session_callbacks[:notify_main_thread] = method(:notify_main_thread).to_proc
       session_callbacks[:music_delivery]     = lambda { |*args| invoke_callback(:on_music_delivery, *args) }
       session_callbacks[:play_token_lost]    = lambda { |*args| invoke_callback(:on_lost_play_token, *args) }
       session_callbacks[:log_message]        = lambda { |*args| invoke_callback(:on_log_message, *args) }
@@ -207,6 +209,7 @@ module Spotify
         :name => sp_track_name(track_ptr),
         :artists => []
       }
+      @cvar.wait
 
       artist_count = sp_track_num_artists(track_ptr)
       if artist_count > 0
@@ -247,6 +250,12 @@ module Spotify
       log :logged_out, session
 
       invoke_callback :on_logout, session
+    end
+
+    def notify_main_thread(session)
+      log :notify_main_thread, session
+
+      @cvar.signal
     end
 
     def check_error(error_code)
