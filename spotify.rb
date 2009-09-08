@@ -8,16 +8,31 @@ module Spotify
     ffi_lib "./lib/libspotify.so"
 
     API_VERSION = 1
+    LINK_TYPES = [:invalid, :track, :album, :artist, :search, :playlist]
 
     attach_function :sp_link_create_from_string, [:string                   ], :pointer
     attach_function :sp_link_as_string,          [:pointer, :string, :int   ], :int
     attach_function :sp_link_release,            [:pointer                  ], :void
     attach_function :sp_session_init,            [:pointer, :pointer        ], :int
     attach_function :sp_link_as_track,           [:pointer                  ], :pointer
+    attach_function :sp_link_type,               [:pointer                  ], :int
     attach_function :sp_track_name,              [:pointer                  ], :string
     attach_function :sp_session_login,           [:pointer, :string, :string], :int
     attach_function :sp_session_process_events,  [:pointer, :pointer        ], :void
     attach_function :sp_error_message,           [:int                      ], :string
+    attach_function :sp_track_num_artists,       [:pointer                  ], :int
+    attach_function :sp_artist_name,             [:pointer                  ], :string
+    attach_function :sp_track_album,             [:pointer                  ], :pointer
+    attach_function :sp_album_artist,            [:pointer                  ], :pointer
+    attach_function :sp_album_name,              [:pointer                  ], :string
+    attach_function :sp_album_year,              [:pointer                  ], :int
+    attach_function :sp_album_release,           [:pointer], :void
+    attach_function :sp_artist_release,          [:pointer], :void
+    attach_function :sp_session_user,            [:pointer], :pointer
+    attach_function :sp_user_display_name,       [:pointer], :string
+    attach_function :sp_user_canonical_name,     [:pointer], :string
+    attach_function :sp_user_is_loaded,          [:pointer], :uchar
+
 
     class SessionConfig < FFI::Struct
       layout :api_version,          :int,
@@ -98,6 +113,35 @@ module Spotify
     end
 
     #
+    # logout
+    #
+
+    def logout
+      check_error Lib.sp_session_logout(@session_ptr)
+    end
+
+    #
+    # fetch info about the given uri
+    #
+
+    def info_for(uri)
+      link_ptr = Lib.sp_link_create_from_string(uri)
+      type = Lib::LINK_TYPES[Lib.sp_link_type(link_ptr)]
+
+      raise "invalid uri" if type == :invalid || type.nil?
+      info = { :type => type }
+      case type
+      when :track
+        info.merge! track_info_for(link_ptr)
+      else
+        raise "unknown type #{type.inspect}"
+      end
+
+      Lib.sp_link_release(link_ptr)
+      info
+    end
+
+    #
     # start the run loop
     #
 
@@ -126,6 +170,7 @@ module Spotify
     end
 
     def create_callbacks
+      log :creating_callbacks
       session_callbacks = Spotify::Lib::SessionCallbacks.new
       session_callbacks[:logged_in]          = method(:logged_in).to_proc
       session_callbacks[:logged_out]         = method(:logged_out).to_proc
@@ -147,9 +192,43 @@ module Spotify
       @session_ptr = session_ptr_ptr.get_pointer(0)
     end
 
+    def track_info_for(link_ptr)
+      track_ptr = Lib.sp_link_as_track(link_ptr)
+      raise TypeError, "not a track" if track_ptr.nil?
+
+      info = { :album => {} }
+      info[:name] = Lib.sp_track_name(track_ptr)
+      artist_count = Lib.sp_track_num_artists(track_ptr)
+
+
+      if artist_count > 0
+        artist_ptrs = (0...artist_count).map { |idx| Lib.sp_track_artist(track_ptr, idx) }
+        info[:artists] = artist_ptrs.map { |ptr| Lib.sp_artist_name(ptr) }
+        aritst_ptrs.each { |ptr| Lib.sp_artist_release(ptr) }
+      end
+
+      album_ptr = Lib.sp_track_album(track_ptr)
+      if album_ptr && !album_ptr.null?
+        artist_ptr = Lib.sp_album_artist(album_ptr)
+        if artist_ptr && !artist_ptr.null?
+          info[:album][:artist] = Lib.sp_artist_name(artist_ptr)
+          Lib.sp_artist_release(artist_ptr)
+        end
+
+        info[:album][:name] = Lib.sp_album_name(album_ptr)
+        info[:album][:year] = Lib.sp_album_year(album_ptr)
+
+        Lib.sp_album_release(album_ptr)
+      end
+
+      info
+    end
+
     def logged_in(session, error)
       log :logged_in, session, error
       check_error error
+      user_ptr = Lib.sp_session_user(session)
+      log :logged_in_as, Lib.sp_user_is_loaded(user_ptr) != 0 ? Lib.sp_user_display_name(user_ptr) : Lib.sp_user_canonical_name(user_ptr)
 
       invoke_callback :on_login, session, error
     end
@@ -170,8 +249,9 @@ module Spotify
       puts "#{self} @ #{Time.now} :: #{args.inspect}" if @verbose
     end
 
-    def invoke_callback(callback, *args)
-      cb = @callbacks[callback]
+    def invoke_callback(key, *args)
+      log key, *args
+      cb = @callbacks[key]
       cb.call(*args) if cb
     end
 
@@ -187,8 +267,11 @@ if __FILE__ == $0
   client.verbose  = true
   client.key_file = "spotify_appkey.key"
 
-  client.login user, pass
+  client.on_metadata_updated do
+    p :info => client.info_for("spotify:track:1BjVDXkrSMlp4hyA1kxUQj")
+  end
 
+  client.login ARGV[0], ARGV[1]
   client.run_loop
 end
 
