@@ -67,6 +67,7 @@ module Spotify
   end
 
   class Client
+    include Spotify
 
     class Error < StandardError; end
 
@@ -86,18 +87,18 @@ module Spotify
     # callbacks
     #
 
-    [ :on_login, 
-      :on_logout, 
-      :on_metadata_updated, 
-      :on_connection_error, 
-      :on_message_to_user, 
+    [ :on_login,
+      :on_logout,
+      :on_metadata_updated,
+      :on_connection_error,
+      :on_message_to_user,
       :on_notification,
-      :on_music_delivery, 
-      :on_lost_play_token, 
+      :on_music_delivery,
+      :on_lost_play_token,
       :on_log_message ].each do |meth|
         module_eval <<-RUBY
           def #{meth}(&blk)
-            @callbacks[#{meth}] = blk
+            @callbacks[#{meth.inspect}] = blk
           end
         RUBY
     end
@@ -177,7 +178,7 @@ module Spotify
     def create_callbacks
       log :creating_callbacks
       session_callbacks = SessionCallbacks.new
-      
+
       session_callbacks[:logged_in]          = method(:logged_in).to_proc
       session_callbacks[:logged_out]         = method(:logged_out).to_proc
       session_callbacks[:metadata_updated]   = lambda { |*args| invoke_callback(:on_metadata_updated, *args) }
@@ -201,8 +202,8 @@ module Spotify
     def track_info_for(link_ptr)
       track_ptr = sp_link_as_track(link_ptr)
       raise TypeError, "not a track" if track_ptr.nil?
-      info = { 
-        :album => {}, 
+      info = {
+        :album => {},
         :name => sp_track_name(track_ptr),
         :artists => []
       }
