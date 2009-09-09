@@ -233,8 +233,6 @@ module Spotify
       track_ptr = sp_link_as_track(link_ptr)
       raise TypeError, "not a track" if track_ptr.null?
 
-      #@callbacks[:on_metadata_updated] = lambda { @process = true }
-
       while (state = ERRORS[sp_track_error(track_ptr)]) == :is_loading
         p :state => state
         process_events
@@ -289,13 +287,7 @@ module Spotify
     end
 
     def notify_main_thread(session)
-      @process = true
-    end
-
-    def wait
-      p :waiting => @process
-      @process = false
-      sleep 0.1 until @process == true
+      log :notify_main_thread, session
     end
 
     def check_error(error_code)
