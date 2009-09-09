@@ -202,7 +202,7 @@ module Spotify
 
     def track_info_for(link_ptr)
       track_ptr = sp_link_as_track(link_ptr)
-      raise TypeError, "not a track" if track_ptr.nil?
+      raise TypeError, "not a track" if track_ptr.null?
       info = {
         :album => {},
         :name => sp_track_name(track_ptr),
@@ -211,17 +211,15 @@ module Spotify
 
       artist_count = sp_track_num_artists(track_ptr)
       if artist_count > 0
-        artist_ptrs = (0...artist_count).map { |idx| sp_track_artist(track_ptr, idx) }
+        artist_ptrs = (0...artist_count).map { |idx| sp_track_artist(track_ptr, idx) }.reject { |ptr| ptr.null? }
         artist_ptrs.each do |ptr|
           info[:artists] << sp_artist_name(ptr)
           sp_artist_release(ptr)
         end
       end
 
-      album_ptr = sp_track_album(track_ptr)
-      if album_ptr && !album_ptr.null?
-        artist_ptr = sp_album_artist(album_ptr)
-        if artist_ptr && !artist_ptr.null?
+      unless (album_ptr = sp_track_album(track_ptr)).null?
+        unless (artist_ptr = sp_album_artist(album_ptr)).null?
           info[:album][:artist] = sp_artist_name(artist_ptr)
           sp_artist_release(artist_ptr)
         end
