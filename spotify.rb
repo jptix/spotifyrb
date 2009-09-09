@@ -284,7 +284,7 @@ module Spotify
 
     def wait
       @process = false
-      sleep 0.1 until @process = true
+      sleep 0.1 until @process == true
     end
 
     def check_error(error_code)
