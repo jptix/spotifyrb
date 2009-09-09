@@ -11,24 +11,24 @@ module Spotify
   LINK_TYPES = [:invalid, :track, :album, :artist, :search, :playlist]
   ERRORS = [
     :ok,                        # No errors encountered
-	  :bad_api_version,           # The library version targeted does not match the one you claim you support
-	  :api_initialization_failed, # Initialization of library failed - are cache locations etc. valid?
-	  :track_not_playable,        # The track specified for playing cannot be played
-	  :resource_not_loaded,       # One or several of the supplied resources is not yet loaded
-	  :bad_application_key,       # The application key is invalid
-	  :bad_username_or_password,  # Login failed because of bad username and/or password
-	  :user_banned,               # The specified username is banned
-	  :unable_to_contact_server,  # Cannot connect to the Spotify backend system
-	  :client_too_old,            # Client is too old, library will need to be updated
-	  :other_permament,           # Some other error occured, and it is permanent (e.g. trying to relogin will not help)
-	  :bad_user_agent,            # The user agent string is invalid or too long
-	  :missing_callback,          # No valid callback registered to handle events
-	  :invalid_indata,            # Input data was either missing or invalid
-	  :index_out_of_range,        # Index out of range
-	  :user_needs_premium,        # The specified user needs a premium account
-	  :other_transient,           # A transient error occured.
-	  :is_loading                 # The resource is currently loading
-	]
+          :bad_api_version,           # The library version targeted does not match the one you claim you support
+          :api_initialization_failed, # Initialization of library failed - are cache locations etc. valid?
+          :track_not_playable,        # The track specified for playing cannot be played
+          :resource_not_loaded,       # One or several of the supplied resources is not yet loaded
+          :bad_application_key,       # The application key is invalid
+          :bad_username_or_password,  # Login failed because of bad username and/or password
+          :user_banned,               # The specified username is banned
+          :unable_to_contact_server,  # Cannot connect to the Spotify backend system
+          :client_too_old,            # Client is too old, library will need to be updated
+          :other_permament,           # Some other error occured, and it is permanent (e.g. trying to relogin will not help)
+          :bad_user_agent,            # The user agent string is invalid or too long
+          :missing_callback,          # No valid callback registered to handle events
+          :invalid_indata,            # Input data was either missing or invalid
+          :index_out_of_range,        # Index out of range
+          :user_needs_premium,        # The specified user needs a premium account
+          :other_transient,           # A transient error occured.
+          :is_loading                 # The resource is currently loading
+        ]
 
   attach_function :sp_album_artist,            [:pointer                  ], :pointer
   attach_function :sp_album_name,              [:pointer                  ], :string
@@ -47,6 +47,7 @@ module Spotify
   attach_function :sp_session_process_events,  [:pointer, :pointer        ], :void
   attach_function :sp_session_user,            [:pointer                  ], :pointer
   attach_function :sp_track_album,             [:pointer                  ], :pointer
+  attach_function :sp_track_artist,            [:pointer, :int            ], :pointer
   attach_function :sp_track_error,             [:pointer                  ], :int
   attach_function :sp_track_name,              [:pointer                  ], :string
   attach_function :sp_track_num_artists,       [:pointer                  ], :int
@@ -115,7 +116,6 @@ module Spotify
       :on_metadata_updated,
       :on_connection_error,
       :on_message_to_user,
-      :on_notification,
       :on_music_delivery,
       :on_lost_play_token,
       :on_log_message ].each do |meth|
@@ -167,6 +167,7 @@ module Spotify
       end
 
       sp_link_release(link_ptr)
+
       info
     end
 
@@ -184,6 +185,12 @@ module Spotify
     end
 
     private
+
+    def process_events
+      sleep_ptr = FFI::MemoryPointer.new :int
+      sp_session_process_events(@session_ptr, sleep_ptr)
+      sleep(sleep_ptr.read_int/1000)
+    end
 
     def create_config
       raise "must set Client#key_file=" unless @key_file
@@ -225,16 +232,20 @@ module Spotify
     def track_info_for(link_ptr)
       track_ptr = sp_link_as_track(link_ptr)
       raise TypeError, "not a track" if track_ptr.null?
+
+      #@callbacks[:on_metadata_updated] = lambda { @process = true }
+
+      while (state = ERRORS[sp_track_error(track_ptr)]) == :is_loading
+        p :state => state
+        process_events
+        sleep 0.5
+      end
+
       info = {
         :album => {},
         :name => sp_track_name(track_ptr),
         :artists => []
       }
-
-      while (state = ERRORS[sp_track_error(track_ptr)]) == :is_loading
-        p :state => state
-        wait
-      end
 
       artist_count = sp_track_num_artists(track_ptr)
       if artist_count > 0
@@ -278,11 +289,11 @@ module Spotify
     end
 
     def notify_main_thread(session)
-      log :notify_main_thread, session
       @process = true
     end
 
     def wait
+      p :waiting => @process
       @process = false
       sleep 0.1 until @process == true
     end
@@ -315,7 +326,7 @@ if __FILE__ == $0
   client.verbose  = true
   client.key_file = "spotify_appkey.key"
 
-  client.on_metadata_updated do
+  client.on_login do
     p :info => client.info_for("spotify:track:1BjVDXkrSMlp4hyA1kxUQj")
   end
 
