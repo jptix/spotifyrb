@@ -80,9 +80,11 @@ module Spotify
       @callbacks         = {}
       @cache_location    = File.dirname(__FILE__)
       @settings_location = File.dirname(__FILE__)
-      @cvar              = ConditionVariable.new
 
       yield self if block_given?
+
+      @cvar              = ConditionVariable.new
+      @mutex             = Mutex.new
     end
 
     #
@@ -202,39 +204,41 @@ module Spotify
     end
 
     def track_info_for(link_ptr)
-      track_ptr = sp_link_as_track(link_ptr)
-      raise TypeError, "not a track" if track_ptr.nil?
-      info = {
-        :album => {},
-        :name => sp_track_name(track_ptr),
-        :artists => []
-      }
-      @cvar.wait
+      @mutex.synchronize do
+        track_ptr = sp_link_as_track(link_ptr)
+        raise TypeError, "not a track" if track_ptr.nil?
+        info = {
+          :album => {},
+          :name => sp_track_name(track_ptr),
+          :artists => []
+        }
+        @cvar.wait @mutex
 
-      artist_count = sp_track_num_artists(track_ptr)
-      if artist_count > 0
-        artist_ptrs = (0...artist_count).map { |idx| sp_track_artist(track_ptr, idx) }
-        artist_ptrs.each do |ptr|
-          info[:artists] << sp_artist_name(ptr)
-          sp_artist_release(ptr)
-        end
-      end
-
-      album_ptr = sp_track_album(track_ptr)
-      if album_ptr && !album_ptr.null?
-        artist_ptr = sp_album_artist(album_ptr)
-        if artist_ptr && !artist_ptr.null?
-          info[:album][:artist] = sp_artist_name(artist_ptr)
-          sp_artist_release(artist_ptr)
+        artist_count = sp_track_num_artists(track_ptr)
+        if artist_count > 0
+          artist_ptrs = (0...artist_count).map { |idx| sp_track_artist(track_ptr, idx) }
+          artist_ptrs.each do |ptr|
+            info[:artists] << sp_artist_name(ptr)
+            sp_artist_release(ptr)
+          end
         end
 
-        info[:album][:name] = sp_album_name(album_ptr)
-        info[:album][:year] = sp_album_year(album_ptr)
+        album_ptr = sp_track_album(track_ptr)
+        if album_ptr && !album_ptr.null?
+          artist_ptr = sp_album_artist(album_ptr)
+          if artist_ptr && !artist_ptr.null?
+            info[:album][:artist] = sp_artist_name(artist_ptr)
+            sp_artist_release(artist_ptr)
+          end
 
-        sp_album_release(album_ptr)
+          info[:album][:name] = sp_album_name(album_ptr)
+          info[:album][:year] = sp_album_year(album_ptr)
+
+          sp_album_release(album_ptr)
+        end
+
+        info
       end
-
-      info
     end
 
     def logged_in(session, error)
@@ -254,8 +258,9 @@ module Spotify
 
     def notify_main_thread(session)
       log :notify_main_thread, session
-
-      @cvar.signal
+      @mutex.synchronize do
+        @cvar.signal
+      end
     end
 
     def check_error(error_code)
