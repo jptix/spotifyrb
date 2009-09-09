@@ -9,6 +9,26 @@ module Spotify
 
   API_VERSION = 1
   LINK_TYPES = [:invalid, :track, :album, :artist, :search, :playlist]
+  ERRORS = [
+    :ok                        # No errors encountered
+	  :bad_api_version           # The library version targeted does not match the one you claim you support
+	  :api_initialization_failed # Initialization of library failed - are cache locations etc. valid?
+	  :track_not_playable        # The track specified for playing cannot be played
+	  :resource_not_loaded       # One or several of the supplied resources is not yet loaded
+	  :bad_application_key       # The application key is invalid
+	  :bad_username_or_password  # Login failed because of bad username and/or password
+	  :user_banned               # The specified username is banned
+	  :unable_to_contact_server  # Cannot connect to the Spotify backend system
+	  :client_too_old            # Client is too old, library will need to be updated
+	  :other_permament           # Some other error occured, and it is permanent (e.g. trying to relogin will not help)
+	  :bad_user_agent            # The user agent string is invalid or too long
+	  :missing_callback          # No valid callback registered to handle events
+	  :invalid_indata            # Input data was either missing or invalid
+	  :index_out_of_range        # Index out of range
+	  :user_needs_premium        # The specified user needs a premium account
+	  :other_transient           # A transient error occured.
+	  :is_loading                # The resource is currently loading
+	]
 
   attach_function :sp_album_artist,            [:pointer                  ], :pointer
   attach_function :sp_album_name,              [:pointer                  ], :string
@@ -27,8 +47,10 @@ module Spotify
   attach_function :sp_session_process_events,  [:pointer, :pointer        ], :void
   attach_function :sp_session_user,            [:pointer                  ], :pointer
   attach_function :sp_track_album,             [:pointer                  ], :pointer
+  attach_function :sp_track_error,             [:pointer                  ], :int
   attach_function :sp_track_name,              [:pointer                  ], :string
   attach_function :sp_track_num_artists,       [:pointer                  ], :int
+  attach_function :sp_track_release,           [:pointer                  ], :void
   attach_function :sp_user_canonical_name,     [:pointer                  ], :string
   attach_function :sp_user_display_name,       [:pointer                  ], :string
   attach_function :sp_user_is_loaded,          [:pointer                  ], :uchar
@@ -209,6 +231,11 @@ module Spotify
         :artists => []
       }
 
+      while (state = ERRORS[sp_track_error(track_ptr)]) == :is_loading
+        p :state => state
+        sleep 1
+      end
+
       artist_count = sp_track_num_artists(track_ptr)
       if artist_count > 0
         artist_ptrs = (0...artist_count).map { |idx| sp_track_artist(track_ptr, idx) }.reject { |ptr| ptr.null? }
@@ -229,6 +256,8 @@ module Spotify
 
         sp_album_release(album_ptr)
       end
+
+      sp_track_release(track_ptr)
 
       info
     end
