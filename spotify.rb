@@ -10,24 +10,24 @@ module Spotify
   API_VERSION = 1
   LINK_TYPES = [:invalid, :track, :album, :artist, :search, :playlist]
   ERRORS = [
-    :ok                        # No errors encountered
-	  :bad_api_version           # The library version targeted does not match the one you claim you support
-	  :api_initialization_failed # Initialization of library failed - are cache locations etc. valid?
-	  :track_not_playable        # The track specified for playing cannot be played
-	  :resource_not_loaded       # One or several of the supplied resources is not yet loaded
-	  :bad_application_key       # The application key is invalid
-	  :bad_username_or_password  # Login failed because of bad username and/or password
-	  :user_banned               # The specified username is banned
-	  :unable_to_contact_server  # Cannot connect to the Spotify backend system
-	  :client_too_old            # Client is too old, library will need to be updated
-	  :other_permament           # Some other error occured, and it is permanent (e.g. trying to relogin will not help)
-	  :bad_user_agent            # The user agent string is invalid or too long
-	  :missing_callback          # No valid callback registered to handle events
-	  :invalid_indata            # Input data was either missing or invalid
-	  :index_out_of_range        # Index out of range
-	  :user_needs_premium        # The specified user needs a premium account
-	  :other_transient           # A transient error occured.
-	  :is_loading                # The resource is currently loading
+    :ok,                        # No errors encountered
+	  :bad_api_version,           # The library version targeted does not match the one you claim you support
+	  :api_initialization_failed, # Initialization of library failed - are cache locations etc. valid?
+	  :track_not_playable,        # The track specified for playing cannot be played
+	  :resource_not_loaded,       # One or several of the supplied resources is not yet loaded
+	  :bad_application_key,       # The application key is invalid
+	  :bad_username_or_password,  # Login failed because of bad username and/or password
+	  :user_banned,               # The specified username is banned
+	  :unable_to_contact_server,  # Cannot connect to the Spotify backend system
+	  :client_too_old,            # Client is too old, library will need to be updated
+	  :other_permament,           # Some other error occured, and it is permanent (e.g. trying to relogin will not help)
+	  :bad_user_agent,            # The user agent string is invalid or too long
+	  :missing_callback,          # No valid callback registered to handle events
+	  :invalid_indata,            # Input data was either missing or invalid
+	  :index_out_of_range,        # Index out of range
+	  :user_needs_premium,        # The specified user needs a premium account
+	  :other_transient,           # A transient error occured.
+	  :is_loading                 # The resource is currently loading
 	]
 
   attach_function :sp_album_artist,            [:pointer                  ], :pointer
