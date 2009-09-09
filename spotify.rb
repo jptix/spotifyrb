@@ -233,7 +233,7 @@ module Spotify
 
       while (state = ERRORS[sp_track_error(track_ptr)]) == :is_loading
         p :state => state
-        sleep 1
+        wait
       end
 
       artist_count = sp_track_num_artists(track_ptr)
@@ -279,6 +279,12 @@ module Spotify
 
     def notify_main_thread(session)
       log :notify_main_thread, session
+      @process = true
+    end
+
+    def wait
+      @process = false
+      sleep 0.1 until @process = true
     end
 
     def check_error(error_code)
